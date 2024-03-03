@@ -1,35 +1,50 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, ResolveField, Parent } from '@nestjs/graphql';
 import { AuthService } from './auth.service';
-import { Auth } from './entities/auth.entity';
-import { CreateAuthInput } from './dto/create-auth.input';
-import { UpdateAuthInput } from './dto/update-auth.input';
+import { Auth } from './auth.model';
+import { SignupInput } from './dto/signup.input';
+import { I18n, I18nContext } from 'nestjs-i18n';
+import { Language, User } from '@prisma/client';
+import { LoginInput } from './dto/login.input';
+import { Token } from 'graphql';
+import { RefreshTokenInput } from './dto/refresh-token.input';
+import { UseGuards } from '@nestjs/common';
+import { GraphqlAuthGuard } from './graphql-auth.guard';
+import { OkResponse } from 'src/shared/models/ok-response.model';
+import { UserEntity } from 'src/moduls/user/user.decorator';
+import { DeleteAccountArgs } from './dto/delete-account.args';
 
 @Resolver(() => Auth)
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
   @Mutation(() => Auth)
-  createAuth(@Args('createAuthInput') createAuthInput: CreateAuthInput) {
-    return "d";
-  }
-
-  @Query(() => [Auth], { name: 'auth' })
-  findAll() {
-    return "d";
-  }
-
-  @Query(() => Auth, { name: 'auth' })
-  findOne(@Args('id', { type: () => Int }) id: number) {
-    return "d";
+  async signup(@Args('data') data: SignupInput, @I18n() i18n: I18nContext){
+    data.email = data.email.toLowerCase();
+    const {accessToken, refreshToken} = await this.authService.signup(data, i18n.lang as Language);
+    return {
+      accessToken, refreshToken
+    };
   }
 
   @Mutation(() => Auth)
-  updateAuth(@Args('updateAuthInput') updateAuthInput: UpdateAuthInput) {
-    return "d";
+  async login(@Args('data') {email, password}: LoginInput){
+    const {accessToken, refreshToken} = await this.authService.login(email.toLowerCase(), password);
+    return {accessToken, refreshToken};
   }
 
-  @Mutation(() => Auth)
-  removeAuth(@Args('id', { type: () => Int }) id: number) {
-    return "d";
+  @Mutation(() => Token)
+  async refreshToken(@Args() {token}: RefreshTokenInput){
+    return this.authService.refreshToken(token);
+  }
+
+  @UseGuards(GraphqlAuthGuard)
+  @Mutation(() => OkResponse)
+  async deleteAccount(@UserEntity() user: User, @Args() {password}: DeleteAccountArgs){
+    return this.authService.deleteAccount(user, password);
+  }
+
+  @ResolveField('user')
+  async user(@Parent() auth: Auth) {
+    return await this.authService.getUserFromToken(auth.accessToken);
   }
 }
