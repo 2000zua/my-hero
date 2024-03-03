@@ -9,7 +9,7 @@ Table User {
   email String [unique, not null]
   password String [not null]
   firstname String
-  heros Hero [not null]
+  heroes Hero [not null]
   votedHeroes VotesOnHeroes [not null]
   language Language [not null]
 }
@@ -30,7 +30,7 @@ Table Hero {
 Table VotesOnHeroes {
   user User
   userId String [not null, default: '']
-  hero Hero
+  heroes Hero
   heroId String [not null, default: '']
   assignedAt DateTime [default: `now()`, not null]
 

@@ -1,35 +1,77 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
-import { HeroService } from './hero.service';
-import { Hero } from './entities/hero.entity';
+import { PaginationArgs } from '../../shared/args/pagination.args';
+import {
+  Args,
+  Mutation,
+  Parent,
+  Query,
+  ResolveField,
+  Resolver,
+  Subscription,
+} from '@nestjs/graphql';
+import { PubSub } from 'graphql-subscriptions/';
+import { UseGuards } from '@nestjs/common';
 import { CreateHeroInput } from './dto/create-hero.input';
-import { UpdateHeroInput } from './dto/update-hero.input';
+import { HeroConnection } from './hero-connection.model';
+import { HeroOrder } from './dto/hero-order.input';
+import { HeroIdArgs } from './dto/hero-id.args';
+import { HeroService } from './hero.service';
+import { GraphqlAuthGuard } from 'src/auth/graphql-auth.guard';
+import { User } from '../user/shared/user.model';
+import { Hero } from './hero.models';
+import { UserEntity } from '../user/user.decorator';
+
+const pubSub = new PubSub();
 
 @Resolver(() => Hero)
 export class HeroResolver {
-  constructor(private readonly heroService: HeroService) {}
+  constructor(private heroService: HeroService) {}
 
+  @Subscription(() => Hero)
+  heroCreated() {
+    return pubSub.asyncIterator('heroCreated');
+  }
+
+  @UseGuards(GraphqlAuthGuard)
   @Mutation(() => Hero)
-  createHero(@Args('createHeroInput') createHeroInput: CreateHeroInput) {
-    return this.heroService.create(createHeroInput);
+  async createHero(@UserEntity() user: User, @Args('data') data: CreateHeroInput) {
+    const newHero = this.heroService.createHero(user, data);
+    await pubSub.publish('heroCreated', { heroCreated: newHero });
+    return newHero;
   }
 
-  @Query(() => [Hero], { name: 'hero' })
-  findAll() {
-    return this.heroService.findAll();
-  }
-
-  @Query(() => Hero, { name: 'hero' })
-  findOne(@Args('id', { type: () => Int }) id: number) {
-    return this.heroService.findOne(id);
-  }
-
+  @UseGuards(GraphqlAuthGuard)
   @Mutation(() => Hero)
-  updateHero(@Args('updateHeroInput') updateHeroInput: UpdateHeroInput) {
-    return this.heroService.update(updateHeroInput.id, updateHeroInput);
+  async voteHero(@UserEntity() user: User, @Args() heroIdArgs: HeroIdArgs) {
+    return this.heroService.voteHero(user, heroIdArgs);
   }
 
-  @Mutation(() => Hero)
-  removeHero(@Args('id', { type: () => Int }) id: number) {
-    return this.heroService.remove(id);
+  @Query(() => HeroConnection)
+  async searchHeroes(
+    @Args() { after, before, first, last }: PaginationArgs,
+    @Args({ name: 'query', type: () => String, nullable: true })
+    query: string,
+    @Args({
+      name: 'orderBy',
+      type: () => HeroOrder,
+      nullable: true,
+    })
+    orderBy: HeroOrder
+  ) {
+    return await this.heroService.searchHeroes(query, { after, before, first, last }, orderBy);
+  }
+
+  @Query(() => Hero)
+  async hero(@Args() heroIdArgs: HeroIdArgs) {
+    return this.heroService.getHero(heroIdArgs);
+  }
+
+  @Query(() => Hero)
+  async heroVotes(@Args() heroIdArgs: HeroIdArgs) {
+    return this.heroService.getHeroVotes(heroIdArgs);
+  }
+
+  @ResolveField('user')
+  async user(@Parent() hero: Hero) {
+    return this.heroService.getUser(hero);
   }
 }

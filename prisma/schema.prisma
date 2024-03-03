@@ -24,7 +24,7 @@ model User {
   email       String    @unique
   password    String
   firstname   String?
-  heros       Hero[]
+  heroes       Hero[]
   votedHeroes VotesOnHeroes[]
   language    Language
 }
@@ -51,7 +51,7 @@ enum Language {
 model VotesOnHeroes {
   user        User?     @relation(fields: [userId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   userId      String    @default("")
-  hero        Hero?     @relation(fields: [heroId], references: [id], onUpdate: Cascade, onDelete: Cascade)
+  heroes      Hero?     @relation(fields: [heroId], references: [id], onUpdate: Cascade, onDelete: Cascade)
   heroId      String    @default("")
   assignedAt  DateTime  @default(now()) @db.Timestamp(3)
   @@id([userId, heroId])

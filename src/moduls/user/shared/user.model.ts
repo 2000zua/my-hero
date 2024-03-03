@@ -1,5 +1,5 @@
 import { HideField, ObjectType } from "@nestjs/graphql";
-import { Hero } from "src/moduls/hero/entities/hero.entity";
+import { Hero } from "src/moduls/hero/hero.models";
 import { BaseModel } from "src/shared/models/base.model";
 
 

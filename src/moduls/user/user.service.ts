@@ -1,26 +1,63 @@
-import { Injectable } from '@nestjs/common';
-import { CreateUserInput } from './dto/create-user.input';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { UpdateUserInput } from './dto/update-user.input';
+import { PublicErrors } from 'src/shared/enums/public-errors.enum';
+import { PrismaService } from 'nestjs-prisma';
+import { AuthService } from 'src/auth/auth.service';
+import { User } from './shared/user.model';
+import { ChangePasswordInput } from './dto/change-password.input';
+import { HeroIdArgs  } from '../hero/dto/hero-id.args';
 
 @Injectable()
 export class UserService {
-  create(createUserInput: CreateUserInput) {
-    return 'This action adds a new user';
+
+  constructor(private prisma: PrismaService, private authService: AuthService) {}
+
+  async updateUser(userId: string, newUserData: UpdateUserInput) {
+    return this.prisma.user.update({
+      data: newUserData, where: { id: userId}
+    });
   }
 
-  findAll() {
-    return `This action returns all user`;
+  async removeHero(user: User, heroIdArgs: HeroIdArgs) {
+    const userHeroes = await this.getHeroes(user);
+    if (!userHeroes?.find(hero => hero.id === heroIdArgs.heroId)) {
+      throw new NotFoundException({
+        code: PublicErrors.HERO_NIT_FOUND,
+        message: `Hero not found`,
+      });
+    }
+
+    return await this.prisma.hero.delete({
+      where: {
+        id: heroIdArgs.heroId,
+      },
+    });
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} user`;
+  getHeroes(author: { id: string }) {
+    return this.prisma.user.findUnique({ where: { id: author.id } }).heroes();
   }
 
-  update(id: number, updateUserInput: UpdateUserInput) {
-    return `This action updates a #${id} user`;
-  }
+  async changePassword(userId: string, userPassword: string, changePassword: ChangePasswordInput) {
+    const passwordValid = await AuthService.validatePassword(
+      changePassword.oldPassword,
+      userPassword
+    );
 
-  remove(id: number) {
-    return `This action removes a #${id} user`;
+    if (!passwordValid) {
+      throw new BadRequestException({
+        code: PublicErrors.INVALID_CREDENTIALS,
+        message: `Invalid credentials`,
+      });
+    }
+
+    const hashedPassword = await this.authService.hashPassword(changePassword.newPassword);
+
+    return this.prisma.user.update({
+      data: {
+        password: hashedPassword,
+      },
+      where: { id: userId },
+    });
   }
 }

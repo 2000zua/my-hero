@@ -11,15 +11,17 @@ import { GraphQLError } from 'graphql';
 import { AppConfigModule } from './config/app/app-config.module';
 import { SharedModule } from './shared/shared.module';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { join } from 'path';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
     HealthModule,
-    AppConfigModule,/*
+    AppConfigModule,
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
-        path: 'C:\\Users\\Gildo\\Music\\my-hero\\src\\i18n',//path.join(__dirname, '/i18n/'),
+        path: 'src/i18n/',//path.join(__dirname, '/i18n/'),
       },
       resolvers: [
         new QueryResolver(['lang']),
@@ -27,35 +29,38 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
         new CookieResolver(),
         AcceptLanguageResolver,
       ],
-    }),*/
+    }),
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       useFactory: async (appConfig: AppConfigService) => ({
+        // Configuração do driver Apollo e opções globais do GraphQL
+        autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
         installSubscriptionHandlers: true,
         buildSchemaOptions: {
           numberScalarMode: 'integer',
+          // Sorteia automaticamente os tipos no esquema (configurável via appConfig.graphqlSortSchema)
+          sortSchema: appConfig.graphqlSortSchema || true,
         },
-        sortSchema: appConfig.graphqlSortSchema,
-        autoSchemaFile: appConfig.graphqlSchemaDestination,
-        debug: appConfig.grapqlDebug,
-        playground: appConfig.grphqlPlaygroundEnabled,
-        context: ({ req }) => ({ req, user: req.user }),
+        debug: appConfig.grapqlDebug || false,
+        playground: appConfig.grphqlPlaygroundEnabled || true,
+        context: ({ req }) => ({ req, user: req.user }), // Adicione informações do usuário ao contexto
         formatError: (error: GraphQLError) => {
-          //const exception = error.extensions?.exception?.response;
           const logger = new Logger('GraphQLError');
           logger.error(JSON.stringify(error));
+
           return error;
-          /*
-          return {
-            message: exception?.message || error.message || 'INTERNAL_SERVER_ERROR',
-            code: exception?.code || error.extensions?.response?.statusCode || 500,
-            data: exception?.data || {},
-            info: exception?.code || error.extensions?.response?.message || '',
+    
+          // Melhora a resposta de erro para os clientes
+          /* return {
+            message: error.message || 'Internal server error',
+            code: error.extensions?.response.statusCode || 500,
+            data: error.extensions?.exception?.data || {},
+            info: error.extensions?.exception?.response?.message || '',
           };*/
         },
       }),
-      inject: [AppConfigService],
-      imports: [AppConfigModule],
+      inject: [AppConfigService], // Injeta o serviço de configuração
+      imports: [AppConfigModule, ConfigModule], // Importa o módulo de configuração se necessário
     }),
     PrismaModule.forRoot({
       isGlobal: true,
