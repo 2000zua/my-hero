@@ -15,11 +15,11 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 @Module({
   imports: [
     HealthModule,
-    AppConfigModule,
+    AppConfigModule,/*
     I18nModule.forRoot({
       fallbackLanguage: 'en',
       loaderOptions: {
-        path: '/src/i18n/',//path.join(__dirname, '/i18n/'),
+        path: 'C:\\Users\\Gildo\\Music\\my-hero\\src\\i18n',//path.join(__dirname, '/i18n/'),
       },
       resolvers: [
         new QueryResolver(['lang']),
@@ -27,7 +27,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
         new CookieResolver(),
         AcceptLanguageResolver,
       ],
-    }),
+    }),*/
     GraphQLModule.forRootAsync<ApolloDriverConfig>({
       driver: ApolloDriver,
       useFactory: async (appConfig: AppConfigService) => ({
